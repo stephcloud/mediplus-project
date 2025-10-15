@@ -27,3 +27,15 @@ jobs:
           IMAGE_URI=892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:$GITHUB_RUN_NUMBER
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
+
+
+          deploy:
+            run:
+                needs: build-push
+                steps:
+                    - name: check my ssh key
+                      run: |
+                        echo ${{ secrets.SSH_KEY }} > mykey.pem
+                        chmod 600 mykey.pem
+                        cat mykey.pem
+                        
