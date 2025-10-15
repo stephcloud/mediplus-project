@@ -41,6 +41,6 @@ jobs:
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
             docker pull 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
             docker stop mediplus || true
-            docker rm mediplus || true
+            docker rm medplus || true
             docker run -d -p 80:80 --name mediplus 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
           EOF
