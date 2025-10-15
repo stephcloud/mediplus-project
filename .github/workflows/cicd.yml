@@ -1,12 +1,13 @@
-name: CI - Build and Push to ECR
+name: CI/CD - Build, Push to ECR, Deploy to EC2
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build-push:
+  build-push-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -20,19 +21,26 @@ jobs:
 
       - name: Login to Amazon ECR
         run: |
-          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 892004491300.dkr.ecr.eu-north-1.amazonaws.com
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
 
       - name: Build, tag, and push image to Amazon ECR
         run: |
-          IMAGE_URI=892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:$GITHUB_RUN_NUMBER
+          IMAGE_URI=892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
-deploy:
-  runs-on: ubuntu-latest
-  needs: build-push
-  steps:
-    - name: Check SSH key
-      run: |
-        echo "${{ secrets.SSH_KEY }}" > docker.pem
-        chmod 600 docker.pem
-        cat docker.pem
+
+      - name: Configure SSH
+        run: |
+          echo "${{ secrets.DOCKER_PEM }}" > docker.pem
+          chmod 600 docker.pem
+
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i docker.pem ubuntu@${{ secrets.EC2_PUBLIC_IP }} << EOF
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            docker pull 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
+            docker stop mediplus || true
+            docker rm mediplus || true
+            docker run -d -p 80:80 --name mediplus 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
+          EOF
