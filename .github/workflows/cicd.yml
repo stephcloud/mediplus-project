@@ -1,13 +1,12 @@
-name: CI/CD - Build, Push to ECR, Deploy to EC2
+name: CI - Build and Push to ECR
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build-push-deploy:
+  build-push:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -21,26 +20,10 @@ jobs:
 
       - name: Login to Amazon ECR
         run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 892004491300.dkr.ecr.eu-north-1.amazonaws.com
 
       - name: Build, tag, and push image to Amazon ECR
         run: |
-          IMAGE_URI=892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          IMAGE_URI=892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:$GITHUB_RUN_NUMBER
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
-
-      - name: Configure SSH key
-        run: |
-          echo "${{ secrets.SSH_KEY }}" > docker.pem
-          chmod 600 docker.pem
-# Deploy to EC2 and run the container from ECR
-      - name: Deploy to EC2
-        run: |
-          ssh -i docker.pem -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} "
-          docker login --username AWS --password $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-          docker pull 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
-          docker stop mediplus || true
-          docker rm mediplus || true
-          docker run -d --name mediplus -p 80:80 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
-          "
