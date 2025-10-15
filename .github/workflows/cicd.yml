@@ -34,13 +34,13 @@ jobs:
         run: |
           echo "${{ secrets.SSH_KEY }}" > docker.pem
           chmod 600 docker.pem
-
+# Deploy to EC2 and run the container from ECR
       - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i docker.pem ubuntu@${{ secrets.EC2_PUBLIC_IP }} << EOF
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-            docker pull 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
-            docker stop mediplus || true
-            docker rm mediplus || true
-            docker run -d -p 80:80 --name mediplus 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
-          EOF
+          ssh -i docker.pem -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} "
+          docker login --username AWS --password $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          docker pull 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
+          docker stop mediplus || true
+          docker rm mediplus || true
+          docker run -d --name mediplus -p 80:80 892004491300.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mediplus:${GITHUB_RUN_NUMBER}
+          "
