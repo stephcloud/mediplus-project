@@ -30,9 +30,9 @@ jobs:
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
-      - name: Configure SSH
+      - name: Configure SSH key
         run: |
-          echo "${{ secrets.DOCKER_PEM }}" > docker.pem
+          echo "${{ secrets.SSH_KEY }}" > docker.pem
           chmod 600 docker.pem
 
       - name: Deploy to EC2
